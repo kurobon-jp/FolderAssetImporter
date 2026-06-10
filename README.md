@@ -73,10 +73,10 @@ Each rule (`AssetPresettingRule`) has the following fields:
 
 | Include Pattern | Preset |
 |---|---|
-| `\.png$` | TextureImporter_UI |
-| `\.wav$` | AudioImporter_SE |
+| `\.png$` | Texture_UI |
+| `\.wav$` | Audio_SE |
 
-### 3. Configure Address Naming *(requires `ENABLE_ADDRESSABLES`)*
+### 3. Configure Address Naming *(requires `com.unity.addressables`)*
 
 Toggle **Enable** on and add entries to **Rules**.
 
