@@ -39,7 +39,22 @@ namespace FolderAssetImporter
                 {
                     AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.Default);
                 }
-            }
+AssetDatabase.StartAssetEditing();
+try
+{
+    foreach (var assetPath in reimportAssets)
+    {
+        var asset = AssetDatabase.LoadAssetAtPath(assetPath, typeof(Object));
+        if (EditorUtility.IsDirty(asset))
+        {
+            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.Default);
+        }
+    }
+}
+finally
+{
+    AssetDatabase.StopAssetEditing();
+}
 
             AssetDatabase.StopAssetEditing();
         }
