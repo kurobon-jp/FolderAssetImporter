@@ -110,8 +110,6 @@ Importing `Assets/Textures/UI/button.png` produces the address `UI/button`.
 
 ### 5. Context menu
 
-Right-click a folder → **CONTEXT > DefaultAsset**:
-
 | Item | Behavior |
 |---|---|
 | **Clear** | Reset all settings on the folder |
