@@ -8,6 +8,8 @@ A Unity Editor library that automatically applies **Presets** and **Addressable 
 
 In large Unity projects, manually configuring import settings and Addressable addresses for every texture, audio clip, or prefab is tedious and error-prone. FolderAssetImporter lets you define rules directly on a folder — any asset imported or moved into that folder is automatically processed.
 
+![](media/image.png)
+
 ---
 
 ## Features
