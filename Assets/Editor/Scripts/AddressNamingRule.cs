@@ -18,8 +18,6 @@ namespace FolderAssetImporter
         [SerializeField] private string _address;
         [SerializeField] private string[] _labels;
 
-        private static readonly Dictionary<string, int> _applyFrames = new();
-
         public bool IsValid()
         {
             return !string.IsNullOrEmpty(_group) || !string.IsNullOrEmpty(_address);
@@ -27,11 +25,7 @@ namespace FolderAssetImporter
 
         public void Apply(string assetPath, bool isDryRun)
         {
-            var now = Time.frameCount;
-            if (_applyFrames.TryGetValue(assetPath, out var frameCount) && frameCount == now) return;
-            _applyFrames[assetPath] = now;
             if (!IsMatch(assetPath, out var collection)) return;
-
 #if ENABLE_ADDRESSABLES
             var settings = AddressableAssetSettingsDefaultObject.Settings;
             if (settings == null)
@@ -68,7 +62,7 @@ namespace FolderAssetImporter
                     }
                 }
             }
-            
+
             Debug.Log($"Applying address naming to {assetPath}\nGroup: {_group} Address: {address}");
             if (isDryRun) return;
 
@@ -93,8 +87,7 @@ namespace FolderAssetImporter
             if (_includePatterns == null || _includePatterns.Length == 0) return true;
             foreach (var pattern in _includePatterns)
             {
-                var regex = new Regex(pattern);
-                var match = regex.Match(assetPath);
+                var match = Regex.Match(assetPath, pattern);
                 if (!match.Success) continue;
                 collection = match.Groups;
                 return true;

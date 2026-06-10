@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,7 +7,7 @@ using UnityEngine;
 
 namespace FolderAssetImporter
 {
-    [System.Serializable]
+    [Serializable]
     public class FolderAssetImportSetting
     {
         private const string RootPath = "Assets";
@@ -34,7 +35,7 @@ namespace FolderAssetImporter
             return FromJson(importer?.userData);
         }
 
-        private static void AssetPresetting(string assetPath, bool isDryRun = false)
+        private static void AssetPresetting(string assetPath, bool isDryRun)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
@@ -43,10 +44,11 @@ namespace FolderAssetImporter
                 if (setting == null) continue;
                 if (setting._enableAssetPresetting)
                 {
+                    var importer = AssetImporter.GetAtPath(assetPath);
                     foreach (var rule in setting._assetPresettingRules)
                     {
                         if (!rule.IsValid()) continue;
-                        rule.Apply(assetPath, isDryRun);
+                        rule.Apply(assetPath, importer, isDryRun);
                     }
 
                     return;
@@ -56,7 +58,7 @@ namespace FolderAssetImporter
             }
         }
 
-        private static void AddressNaming(string assetPath, bool isDryRun = false)
+        private static void AddressNaming(string assetPath, bool isDryRun)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
@@ -80,8 +82,9 @@ namespace FolderAssetImporter
 
         public static void Import(string assetPath)
         {
-            AssetPresetting(assetPath);
-            AddressNaming(assetPath);
+           AddressNaming(assetPath, false);
+           AssetPresetting(assetPath, false);
+
         }
 
         public class Wrapper : ScriptableObject
@@ -104,15 +107,14 @@ namespace FolderAssetImporter
                 {
                     _isChanged = false;
                     _importer.userData = _setting.ToJson();
-                    _importer.SaveAndReimport();
+                    // _importer.SaveAndReimport();
                 }
-
-                EditorUtility.SetDirty(this);
             }
 
             public void ReImport(bool isDryRun = false)
             {
                 Save();
+                EditorUtility.SetDirty(this);
                 var assetPath = _importer.assetPath;
                 var files = Directory.EnumerateFileSystemEntries(assetPath, "*", SearchOption.AllDirectories)
                     .Where(x => !x.EndsWith(".meta") && !x.EndsWith("~") && !Path.GetFileName(x).StartsWith("."))
@@ -122,6 +124,7 @@ namespace FolderAssetImporter
                 string dir = null;
                 var skipAssetPresetting = false;
                 var skipAddressNaming = false;
+                var reimportAssets = new HashSet<string>();
                 foreach (var file in files)
                 {
                     if (Directory.Exists(file))
@@ -143,6 +146,7 @@ namespace FolderAssetImporter
                     if (!skipAssetPresetting)
                     {
                         AssetPresetting(file, isDryRun);
+                        reimportAssets.Add(file);
                     }
 
                     if (!skipAddressNaming)
@@ -150,6 +154,15 @@ namespace FolderAssetImporter
                         AddressNaming(file, isDryRun);
                     }
                 }
+                
+                if (reimportAssets.Count == 0 || isDryRun) return;
+                AssetDatabase.StartAssetEditing();
+                foreach (var reimportAsset in reimportAssets)
+                {
+                    AssetDatabase.ImportAsset(reimportAsset, ImportAssetOptions.Default);
+                }
+
+                AssetDatabase.StopAssetEditing();
             }
 
             public void SetChanged()
