@@ -93,7 +93,7 @@ Each rule (`AddressNamingRule`) has the following fields:
 
 Include Pattern:
 ```
-Assets/Textures/(\w+)/(\w+)\.png
+(\w+)/(\w+)\.png
 ```
 Address:
 ```
