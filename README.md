@@ -118,29 +118,6 @@ Importing `Assets/Textures/UI/button.png` produces the address `UI/button`.
 
 ---
 
-## How It Works
-
-```
-Asset imported or moved
-        ↓
-FolderAssetProcessor (AssetPostprocessor)
-  └─ OnPostprocessAllAssets
-        ↓
-FolderAssetImportSetting.Import(assetPath)
-  ├─ AssetPresettingRule.Apply()
-  │    ├─ Match asset path against Include Patterns
-  │    ├─ Preset.ApplyTo(AssetImporter)
-  │    └─ importer.SaveAndReimport()
-  └─ AddressNamingRule.Apply()        (ENABLE_ADDRESSABLES only)
-       ├─ Match asset path against Include Patterns (capture groups)
-       ├─ Find or create Addressable group
-       └─ Create/move entry, set address and labels
-```
-
-`FolderAssetProcessor` returns `int.MaxValue` from `GetPostprocessOrder()`, ensuring it runs after all other `AssetPostprocessor` implementations.
-
----
-
 ## License
 
 This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
