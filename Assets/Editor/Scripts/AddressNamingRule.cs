@@ -21,7 +21,7 @@ namespace FolderAssetImporter
         public bool TryGetApplier(string assetPath, out Applier applier)
         {
             applier = null;
-            if (string.IsNullOrEmpty(_group) && string.IsNullOrEmpty(_address))return false;
+            if (string.IsNullOrEmpty(_group) && string.IsNullOrEmpty(_address)) return false;
             if (!IsMatch(assetPath, out var collection)) return false;
 
             var address = _address;
@@ -76,11 +76,11 @@ namespace FolderAssetImporter
                 _labels = labels;
             }
 
-            public void Log() 
+            public void Log()
             {
                 Debug.Log($"Applying address naming to {_assetPath}\nGroup: {_group} Address: {_address}");
             }
-            
+
             public void Apply()
             {
 #if ENABLE_ADDRESSABLES

@@ -138,75 +138,75 @@ namespace FolderAssetImporter
             {
                 Save();
                 EditorUtility.SetDirty(this);
-                var assetPath = _importer.assetPath;
-                var files = Directory.EnumerateFileSystemEntries(assetPath, "*", SearchOption.AllDirectories)
-                    .Where(x => !x.EndsWith(".meta") && !x.EndsWith("~") && !Path.GetFileName(x).StartsWith("."))
-                    .Select(x => x.Replace("\\", "/"))
-                    .OrderBy(f => f.Split("/").Length)
-                    .ThenBy(f => f);
-                string dir = null;
-                var skipAssetPresetting = false;
-                var skipAddressNaming = false;
-                var reimportAssets = new HashSet<string>();
-                var presettingAppliers = new List<AssetPresettingRule.Applier>();
-                var addressNamingAppliers = new List<AddressNamingRule.Applier>();
-                foreach (var file in files)
-                {
-                    if (Directory.Exists(file))
-                    {
-                        if (file != dir && (dir == null || !file.StartsWith(dir)))
-                        {
-                            dir = file;
-                            var setting = FromPath(file);
-                            if (setting != null)
-                            {
-                                skipAssetPresetting = setting._enableAssetPresetting;
-                                skipAddressNaming = setting._enableAddressNaming;
-                            }
-                        }
-
-                        continue;
-                    }
-
-                    presettingAppliers.Clear();
-                    addressNamingAppliers.Clear();
-                    if (!skipAssetPresetting && CollectAppliers(file, presettingAppliers))
-                    {
-                        reimportAssets.Add(file);
-                        foreach (var applier in presettingAppliers)
-                        {
-                            if (isDryRun)
-                            {
-                                applier.Log();
-                            }
-                            else
-                            {
-                                applier.Apply();
-                            }
-                        }
-                    }
-#if ENABLE_ADDRESSABLES
-                    if (!skipAddressNaming && CollectAppliers(file, addressNamingAppliers))
-                    {
-                        foreach (var applier in addressNamingAppliers)
-                        {
-                            if (isDryRun)
-                            {
-                                applier.Log();
-                            }
-                            else
-                            {
-                                applier.Apply();
-                            }
-                        }
-                    }
-#endif
-                }
-
-                if (reimportAssets.Count == 0 || isDryRun) return;
                 AssetDatabase.StartAssetEditing();
                 try
                 {
+                    var assetPath = _importer.assetPath;
+                    var files = Directory.EnumerateFileSystemEntries(assetPath, "*", SearchOption.AllDirectories)
+                        .Where(x => !x.EndsWith(".meta") && !x.EndsWith("~") && !Path.GetFileName(x).StartsWith("."))
+                        .Select(x => x.Replace("\\", "/"))
+                        .OrderBy(f => f.Split("/").Length)
+                        .ThenBy(f => f);
+                    string dir = null;
+                    var skipAssetPresetting = false;
+                    var skipAddressNaming = false;
+                    var reimportAssets = new HashSet<string>();
+                    var presettingAppliers = new List<AssetPresettingRule.Applier>();
+                    var addressNamingAppliers = new List<AddressNamingRule.Applier>();
+                    foreach (var file in files)
+                    {
+                        if (Directory.Exists(file))
+                        {
+                            if (file != dir && (dir == null || !file.StartsWith(dir)))
+                            {
+                                dir = file;
+                                var setting = FromPath(file);
+                                if (setting != null)
+                                {
+                                    skipAssetPresetting = setting._enableAssetPresetting;
+                                    skipAddressNaming = setting._enableAddressNaming;
+                                }
+                            }
+
+                            continue;
+                        }
+
+                        presettingAppliers.Clear();
+                        if (!skipAssetPresetting && CollectAppliers(file, presettingAppliers))
+                        {
+                            foreach (var applier in presettingAppliers)
+                            {
+                                if (isDryRun)
+                                {
+                                    applier.Log();
+                                }
+                                else
+                                {
+                                    applier.Apply();
+                                    reimportAssets.Add(file);
+                                }
+                            }
+                        }
+#if ENABLE_ADDRESSABLES
+                        addressNamingAppliers.Clear();
+                        if (!skipAddressNaming && CollectAppliers(file, addressNamingAppliers))
+                        {
+                            foreach (var applier in addressNamingAppliers)
+                            {
+                                if (isDryRun)
+                                {
+                                    applier.Log();
+                                }
+                                else
+                                {
+                                    applier.Apply();
+                                    reimportAssets.Add(file);
+                                }
+                            }
+                        }
+#endif
+                    }
+
                     foreach (var reimportAsset in reimportAssets)
                     {
                         AssetDatabase.ImportAsset(reimportAsset, ImportAssetOptions.Default);
