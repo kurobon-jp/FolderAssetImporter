@@ -35,7 +35,7 @@ namespace FolderAssetImporter
             return FromJson(importer?.userData);
         }
 
-        private static void AssetPresetting(string assetPath, bool isDryRun)
+        private static bool CollectAppliers(string assetPath, List<AssetPresettingRule.Applier> appliers)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
@@ -44,21 +44,24 @@ namespace FolderAssetImporter
                 if (setting == null) continue;
                 if (setting._enableAssetPresetting)
                 {
-                    var importer = AssetImporter.GetAtPath(assetPath);
                     foreach (var rule in setting._assetPresettingRules)
                     {
-                        if (!rule.IsValid()) continue;
-                        rule.Apply(assetPath, importer, isDryRun);
+                        if (rule.TryGetApplier(assetPath, out var applier))
+                        {
+                            appliers.Add(applier);
+                        }
                     }
 
-                    return;
+                    return appliers.Count > 0;
                 }
 
                 parentPath = Path.GetDirectoryName(parentPath);
             }
+
+            return false;
         }
 
-        private static void AddressNaming(string assetPath, bool isDryRun)
+        private static bool CollectAppliers(string assetPath, List<AddressNamingRule.Applier> appliers)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
@@ -69,22 +72,43 @@ namespace FolderAssetImporter
                 {
                     foreach (var rule in setting._addressNamingRules)
                     {
-                        if (!rule.IsValid()) continue;
-                        rule.Apply(assetPath, isDryRun);
+                        if (rule.TryGetApplier(assetPath, out var applier))
+                        {
+                            appliers.Add(applier);
+                        }
                     }
 
-                    return;
+                    return appliers.Count > 0;
                 }
 
                 parentPath = Path.GetDirectoryName(parentPath);
             }
+
+            return false;
         }
 
         public static void Import(string assetPath)
         {
-           AddressNaming(assetPath, false);
-           AssetPresetting(assetPath, false);
-
+            var presettingAppliers = new List<AssetPresettingRule.Applier>();
+            if (CollectAppliers(assetPath, presettingAppliers))
+            {
+                foreach (var applier in presettingAppliers)
+                {
+                    applier.Apply();
+                    applier.Log();
+                }
+            }
+#if ENABLE_ADDRESSABLES
+            var addressNamingAppliers = new List<AddressNamingRule.Applier>();
+            if (CollectAppliers(assetPath, addressNamingAppliers))
+            {
+                foreach (var applier in addressNamingAppliers)
+                {
+                    applier.Apply();
+                    applier.Log();
+                }
+            }
+#endif
         }
 
         public class Wrapper : ScriptableObject
@@ -107,7 +131,6 @@ namespace FolderAssetImporter
                 {
                     _isChanged = false;
                     _importer.userData = _setting.ToJson();
-                    // _importer.SaveAndReimport();
                 }
             }
 
@@ -125,6 +148,8 @@ namespace FolderAssetImporter
                 var skipAssetPresetting = false;
                 var skipAddressNaming = false;
                 var reimportAssets = new HashSet<string>();
+                var presettingAppliers = new List<AssetPresettingRule.Applier>();
+                var addressNamingAppliers = new List<AddressNamingRule.Applier>();
                 foreach (var file in files)
                 {
                     if (Directory.Exists(file))
@@ -143,26 +168,54 @@ namespace FolderAssetImporter
                         continue;
                     }
 
-                    if (!skipAssetPresetting)
+                    presettingAppliers.Clear();
+                    addressNamingAppliers.Clear();
+                    if (!skipAssetPresetting && CollectAppliers(file, presettingAppliers))
                     {
-                        AssetPresetting(file, isDryRun);
                         reimportAssets.Add(file);
+                        foreach (var applier in presettingAppliers)
+                        {
+                            if (isDryRun)
+                            {
+                                applier.Log();
+                            }
+                            else
+                            {
+                                applier.Apply();
+                            }
+                        }
                     }
-
-                    if (!skipAddressNaming)
+#if ENABLE_ADDRESSABLES
+                    if (!skipAddressNaming && CollectAppliers(file, addressNamingAppliers))
                     {
-                        AddressNaming(file, isDryRun);
+                        foreach (var applier in addressNamingAppliers)
+                        {
+                            if (isDryRun)
+                            {
+                                applier.Log();
+                            }
+                            else
+                            {
+                                applier.Apply();
+                            }
+                        }
                     }
+#endif
                 }
-                
+
                 if (reimportAssets.Count == 0 || isDryRun) return;
                 AssetDatabase.StartAssetEditing();
-                foreach (var reimportAsset in reimportAssets)
+                try
                 {
-                    AssetDatabase.ImportAsset(reimportAsset, ImportAssetOptions.Default);
+                    foreach (var reimportAsset in reimportAssets)
+                    {
+                        AssetDatabase.ImportAsset(reimportAsset, ImportAssetOptions.Default);
+                    }
                 }
-
-                AssetDatabase.StopAssetEditing();
+                finally
+                {
+                    AssetDatabase.StopAssetEditing();
+                }
             }
 
             public void SetChanged()

@@ -32,31 +32,21 @@ namespace FolderAssetImporter
 
             if (reimportAssets.Count == 0) return;
             AssetDatabase.StartAssetEditing();
-            foreach (var assetPath in reimportAssets)
+            try
             {
-                var asset = AssetDatabase.LoadAssetAtPath(assetPath, typeof(Object));
-                if (EditorUtility.IsDirty(asset))
+                foreach (var assetPath in reimportAssets)
                 {
-                    AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.Default);
+                    var asset = AssetDatabase.LoadAssetAtPath(assetPath, typeof(Object));
+                    if (EditorUtility.IsDirty(asset))
+                    {
+                        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.Default);
+                    }
                 }
-AssetDatabase.StartAssetEditing();
-try
-{
-    foreach (var assetPath in reimportAssets)
-    {
-        var asset = AssetDatabase.LoadAssetAtPath(assetPath, typeof(Object));
-        if (EditorUtility.IsDirty(asset))
-        {
-            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.Default);
-        }
-    }
-}
-finally
-{
-    AssetDatabase.StopAssetEditing();
-}
-
-            AssetDatabase.StopAssetEditing();
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+            }
         }
     }
 }

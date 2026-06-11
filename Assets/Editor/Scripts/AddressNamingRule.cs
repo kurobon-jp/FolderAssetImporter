@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 #if ENABLE_ADDRESSABLES
@@ -11,40 +11,21 @@ using UnityEngine;
 namespace FolderAssetImporter
 {
     [Serializable]
-    public struct AddressNamingRule
+    public class AddressNamingRule
     {
         [SerializeField] private string[] _includePatterns;
         [SerializeField] private string _group;
         [SerializeField] private string _address;
         [SerializeField] private string[] _labels;
 
-        public bool IsValid()
+        public bool TryGetApplier(string assetPath, out Applier applier)
         {
-            return !string.IsNullOrEmpty(_group) || !string.IsNullOrEmpty(_address);
-        }
+            applier = null;
+            if (string.IsNullOrEmpty(_group) && string.IsNullOrEmpty(_address))return false;
+            if (!IsMatch(assetPath, out var collection)) return false;
 
-        public void Apply(string assetPath, bool isDryRun)
-        {
-            if (!IsMatch(assetPath, out var collection)) return;
-#if ENABLE_ADDRESSABLES
-            var settings = AddressableAssetSettingsDefaultObject.Settings;
-            if (settings == null)
-            {
-                throw new Exception("AddressableAssetSettings not found");
-            }
-
-            var group = settings.FindGroup(_group);
-            if (group == null && !isDryRun)
-            {
-                var groupTemplate = settings.GetGroupTemplateObject(0) as AddressableAssetGroupTemplate;
-                group = settings.CreateGroup(_group, false, false, true, null,
-                    groupTemplate.GetTypes());
-                groupTemplate.ApplyToAddressableAssetGroup(group);
-            }
-
-            var guid = AssetDatabase.AssetPathToGUID(assetPath);
             var address = _address;
-            var labels = new List<string>();
+            var labels = Array.Empty<string>();
             if (collection is { Count: > 1 })
             {
                 var args = new object[collection.Count - 1];
@@ -54,30 +35,14 @@ namespace FolderAssetImporter
                 }
 
                 address = string.Format(address, args);
-                foreach (var label in _labels)
-                {
-                    if (!string.IsNullOrEmpty(label))
-                    {
-                        labels.Add(string.Format(label, args));
-                    }
-                }
+                labels = _labels
+                    .Where(label => !string.IsNullOrEmpty(label))
+                    .Select(label => string.Format(label, args))
+                    .ToArray();
             }
 
-            Debug.Log($"Applying address naming to {assetPath}\nGroup: {_group} Address: {address}");
-            if (isDryRun) return;
-
-            var entry = settings.CreateOrMoveEntry(guid, group);
-            entry.SetAddress(address);
-            foreach (var label in entry.labels)
-            {
-                entry.SetLabel(label, false);
-            }
-
-            foreach (var label in labels)
-            {
-                entry.SetLabel(label, true, true);
-            }
-#endif
+            applier = new Applier(assetPath, _group, address, labels);
+            return true;
         }
 
         private bool IsMatch(string assetPath, out GroupCollection collection)
@@ -94,6 +59,60 @@ namespace FolderAssetImporter
             }
 
             return false;
+        }
+
+        public class Applier
+        {
+            private readonly string _assetPath;
+            private readonly string _group;
+            private readonly string _address;
+            private readonly string[] _labels;
+
+            public Applier(string assetPath, string group, string address, string[] labels)
+            {
+                _assetPath = assetPath;
+                _group = group;
+                _address = address;
+                _labels = labels;
+            }
+
+            public void Log() 
+            {
+                Debug.Log($"Applying address naming to {_assetPath}\nGroup: {_group} Address: {_address}");
+            }
+            
+            public void Apply()
+            {
+#if ENABLE_ADDRESSABLES
+                var settings = AddressableAssetSettingsDefaultObject.Settings;
+                if (settings == null)
+                {
+                    throw new Exception("AddressableAssetSettings not found");
+                }
+
+                var group = settings.FindGroup(_group);
+                if (group == null)
+                {
+                    var groupTemplate = settings.GetGroupTemplateObject(0) as AddressableAssetGroupTemplate;
+                    group = settings.CreateGroup(_group, false, false, true, null,
+                        groupTemplate.GetTypes());
+                    groupTemplate.ApplyToAddressableAssetGroup(group);
+                }
+
+                var guid = AssetDatabase.AssetPathToGUID(_assetPath);
+                var entry = settings.CreateOrMoveEntry(guid, group);
+                entry.SetAddress(_address);
+                foreach (var label in entry.labels)
+                {
+                    entry.SetLabel(label, false);
+                }
+
+                foreach (var label in _labels)
+                {
+                    entry.SetLabel(label, true, true);
+                }
+#endif
+            }
         }
     }
 }
