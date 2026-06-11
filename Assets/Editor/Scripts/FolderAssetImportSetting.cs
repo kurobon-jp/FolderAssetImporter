@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,7 +7,7 @@ using UnityEngine;
 
 namespace FolderAssetImporter
 {
-    [System.Serializable]
+    [Serializable]
     public class FolderAssetImportSetting
     {
         private const string RootPath = "Assets";
@@ -34,7 +35,7 @@ namespace FolderAssetImporter
             return FromJson(importer?.userData);
         }
 
-        private static void AssetPresetting(string assetPath, bool isDryRun = false)
+        private static bool CollectAppliers(string assetPath, List<AssetPresettingRule.Applier> appliers)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
@@ -45,18 +46,22 @@ namespace FolderAssetImporter
                 {
                     foreach (var rule in setting._assetPresettingRules)
                     {
-                        if (!rule.IsValid()) continue;
-                        rule.Apply(assetPath, isDryRun);
+                        if (rule.TryGetApplier(assetPath, out var applier))
+                        {
+                            appliers.Add(applier);
+                        }
                     }
 
-                    return;
+                    return appliers.Count > 0;
                 }
 
                 parentPath = Path.GetDirectoryName(parentPath);
             }
+
+            return false;
         }
 
-        private static void AddressNaming(string assetPath, bool isDryRun = false)
+        private static bool CollectAppliers(string assetPath, List<AddressNamingRule.Applier> appliers)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
@@ -67,21 +72,43 @@ namespace FolderAssetImporter
                 {
                     foreach (var rule in setting._addressNamingRules)
                     {
-                        if (!rule.IsValid()) continue;
-                        rule.Apply(assetPath, isDryRun);
+                        if (rule.TryGetApplier(assetPath, out var applier))
+                        {
+                            appliers.Add(applier);
+                        }
                     }
 
-                    return;
+                    return appliers.Count > 0;
                 }
 
                 parentPath = Path.GetDirectoryName(parentPath);
             }
+
+            return false;
         }
 
         public static void Import(string assetPath)
         {
-            AssetPresetting(assetPath);
-            AddressNaming(assetPath);
+            var presettingAppliers = new List<AssetPresettingRule.Applier>();
+            if (CollectAppliers(assetPath, presettingAppliers))
+            {
+                foreach (var applier in presettingAppliers)
+                {
+                    applier.Apply();
+                    applier.Log();
+                }
+            }
+#if ENABLE_ADDRESSABLES
+            var addressNamingAppliers = new List<AddressNamingRule.Applier>();
+            if (CollectAppliers(assetPath, addressNamingAppliers))
+            {
+                foreach (var applier in addressNamingAppliers)
+                {
+                    applier.Apply();
+                    applier.Log();
+                }
+            }
+#endif
         }
 
         public class Wrapper : ScriptableObject
@@ -104,51 +131,90 @@ namespace FolderAssetImporter
                 {
                     _isChanged = false;
                     _importer.userData = _setting.ToJson();
-                    _importer.SaveAndReimport();
                 }
-
-                EditorUtility.SetDirty(this);
             }
 
             public void ReImport(bool isDryRun = false)
             {
                 Save();
-                var assetPath = _importer.assetPath;
-                var files = Directory.EnumerateFileSystemEntries(assetPath, "*", SearchOption.AllDirectories)
-                    .Where(x => !x.EndsWith(".meta") && !x.EndsWith("~") && !Path.GetFileName(x).StartsWith("."))
-                    .Select(x => x.Replace("\\", "/"))
-                    .OrderBy(f => f.Split("/").Length)
-                    .ThenBy(f => f);
-                string dir = null;
-                var skipAssetPresetting = false;
-                var skipAddressNaming = false;
-                foreach (var file in files)
+                EditorUtility.SetDirty(this);
+                AssetDatabase.StartAssetEditing();
+                try
                 {
-                    if (Directory.Exists(file))
+                    var assetPath = _importer.assetPath;
+                    var files = Directory.EnumerateFileSystemEntries(assetPath, "*", SearchOption.AllDirectories)
+                        .Where(x => !x.EndsWith(".meta") && !x.EndsWith("~") && !Path.GetFileName(x).StartsWith("."))
+                        .Select(x => x.Replace("\\", "/"))
+                        .OrderBy(f => f.Split("/").Length)
+                        .ThenBy(f => f);
+                    string dir = null;
+                    var skipAssetPresetting = false;
+                    var skipAddressNaming = false;
+                    var reimportAssets = new HashSet<string>();
+                    var presettingAppliers = new List<AssetPresettingRule.Applier>();
+                    var addressNamingAppliers = new List<AddressNamingRule.Applier>();
+                    foreach (var file in files)
                     {
-                        if (file != dir && (dir == null || !file.StartsWith(dir)))
+                        if (Directory.Exists(file))
                         {
-                            dir = file;
-                            var setting = FromPath(file);
-                            if (setting != null)
+                            if (file != dir && (dir == null || !file.StartsWith(dir)))
                             {
-                                skipAssetPresetting = setting._enableAssetPresetting;
-                                skipAddressNaming = setting._enableAddressNaming;
+                                dir = file;
+                                var setting = FromPath(file);
+                                if (setting != null)
+                                {
+                                    skipAssetPresetting = setting._enableAssetPresetting;
+                                    skipAddressNaming = setting._enableAddressNaming;
+                                }
                             }
+
+                            continue;
                         }
 
-                        continue;
+                        presettingAppliers.Clear();
+                        if (!skipAssetPresetting && CollectAppliers(file, presettingAppliers))
+                        {
+                            foreach (var applier in presettingAppliers)
+                            {
+                                if (isDryRun)
+                                {
+                                    applier.Log();
+                                }
+                                else
+                                {
+                                    applier.Apply();
+                                    reimportAssets.Add(file);
+                                }
+                            }
+                        }
+#if ENABLE_ADDRESSABLES
+                        addressNamingAppliers.Clear();
+                        if (!skipAddressNaming && CollectAppliers(file, addressNamingAppliers))
+                        {
+                            foreach (var applier in addressNamingAppliers)
+                            {
+                                if (isDryRun)
+                                {
+                                    applier.Log();
+                                }
+                                else
+                                {
+                                    applier.Apply();
+                                    reimportAssets.Add(file);
+                                }
+                            }
+                        }
+#endif
                     }
 
-                    if (!skipAssetPresetting)
+                    foreach (var reimportAsset in reimportAssets)
                     {
-                        AssetPresetting(file, isDryRun);
+                        AssetDatabase.ImportAsset(reimportAsset, ImportAssetOptions.Default);
                     }
-
-                    if (!skipAddressNaming)
-                    {
-                        AddressNaming(file, isDryRun);
-                    }
+                }
+                finally
+                {
+                    AssetDatabase.StopAssetEditing();
                 }
             }
 

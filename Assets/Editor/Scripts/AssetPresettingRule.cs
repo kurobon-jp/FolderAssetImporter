@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Presets;
@@ -8,57 +8,54 @@ using UnityEngine;
 namespace FolderAssetImporter
 {
     [Serializable]
-    public struct AssetPresettingRule
+    public class AssetPresettingRule
     {
         [SerializeField] private string[] _includePatterns;
         [SerializeField] private Preset[] _presets;
 
-        private static readonly Dictionary<string, int> _applyFrames = new();
-
-        public bool IsValid()
+        public bool TryGetApplier(string assetPath, out Applier applier)
         {
-            return _presets is { Length: > 0 };
-        }
-
-        public void Apply(string assetPath, bool isDryRun)
-        {
-            var now = Time.frameCount;
-            if (_applyFrames.TryGetValue(assetPath, out var frameCount) && frameCount == now) return;
-            _applyFrames[assetPath] = now;
-
-            var count = 0;
+            applier = null;
+            if (_presets == null || _includePatterns == null || _presets.All(x => x == null)) return false;
             foreach (var pattern in _includePatterns)
             {
                 if (!Regex.IsMatch(assetPath, pattern)) continue;
-                count++;
-                break;
+                applier = new Applier(assetPath, _presets);
+                return true;
             }
 
-            if (count == 0) return;
-            Presetting(assetPath, isDryRun);
+            return false;
         }
 
-        private void Presetting(string assetPath, bool isDryRun)
+        public class Applier
         {
-            foreach (var preset in _presets)
+            private readonly string _assetPath;
+            private readonly Preset[] _presets;
+            
+            public Applier(string assetPath, Preset[] presets)
             {
-                if (preset != null)
+                _assetPath = assetPath;
+                _presets = presets;
+            }
+            
+            public void Log()
+            {
+                foreach (var preset in _presets)
                 {
-                    Debug.Log($"Applying preset {preset.name} to {assetPath}");
+                    if (preset == null) continue;
+                    Debug.Log($"Applying preset {preset.name} to {_assetPath}");
                 }
             }
 
-            if (isDryRun) return;
-            var importer = AssetImporter.GetAtPath(assetPath);
-            foreach (var preset in _presets)
+            public void Apply()
             {
-                if (preset != null)
+                var importer = AssetImporter.GetAtPath(_assetPath);
+                foreach (var preset in _presets)
                 {
+                    if (preset == null) continue;
                     preset.ApplyTo(importer);
                 }
             }
-
-            importer.SaveAndReimport();
         }
     }
 }
