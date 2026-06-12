@@ -35,24 +35,44 @@ namespace FolderAssetImporter
             return FromJson(importer?.userData);
         }
 
-        private static bool CollectAppliers(string assetPath, List<AssetPresettingRule.Applier> appliers)
+        private bool CollectAppliers(string assetPath, List<AssetPresettingRule.Applier> appliers)
+        {
+            if (!_enableAssetPresetting) return false;
+            foreach (var rule in _assetPresettingRules)
+            {
+                if (rule.TryGetApplier(assetPath, out var applier))
+                {
+                    appliers.Add(applier);
+                }
+            }
+
+            return appliers.Count > 0;
+        }
+
+        private bool CollectAppliers(string assetPath, List<AddressNamingRule.Applier> appliers)
+        {
+            if (!_enableAddressNaming) return false;
+            foreach (var rule in _addressNamingRules)
+            {
+                if (rule.TryGetApplier(assetPath, out var applier))
+                {
+                    appliers.Add(applier);
+                }
+            }
+
+            return appliers.Count > 0;
+        }
+
+        private static bool TryCollectAppliersFromAncestors(string assetPath, List<AssetPresettingRule.Applier> appliers)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
             {
                 var setting = FromPath(parentPath);
                 if (setting == null) continue;
-                if (setting._enableAssetPresetting)
+                if (setting.CollectAppliers(assetPath, appliers))
                 {
-                    foreach (var rule in setting._assetPresettingRules)
-                    {
-                        if (rule.TryGetApplier(assetPath, out var applier))
-                        {
-                            appliers.Add(applier);
-                        }
-                    }
-
-                    return appliers.Count > 0;
+                    return true;
                 }
 
                 parentPath = Path.GetDirectoryName(parentPath);
@@ -61,24 +81,16 @@ namespace FolderAssetImporter
             return false;
         }
 
-        private static bool CollectAppliers(string assetPath, List<AddressNamingRule.Applier> appliers)
+        private static bool TryCollectAppliersFromAncestors(string assetPath, List<AddressNamingRule.Applier> appliers)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
             {
                 var setting = FromPath(parentPath);
                 if (setting == null) continue;
-                if (setting._enableAddressNaming)
+                if (setting.CollectAppliers(assetPath, appliers))
                 {
-                    foreach (var rule in setting._addressNamingRules)
-                    {
-                        if (rule.TryGetApplier(assetPath, out var applier))
-                        {
-                            appliers.Add(applier);
-                        }
-                    }
-
-                    return appliers.Count > 0;
+                    return true;
                 }
 
                 parentPath = Path.GetDirectoryName(parentPath);
@@ -90,7 +102,7 @@ namespace FolderAssetImporter
         internal static void Import(string assetPath)
         {
             var presettingAppliers = new List<AssetPresettingRule.Applier>();
-            if (CollectAppliers(assetPath, presettingAppliers))
+            if (TryCollectAppliersFromAncestors(assetPath, presettingAppliers))
             {
                 foreach (var applier in presettingAppliers)
                 {
@@ -100,7 +112,7 @@ namespace FolderAssetImporter
             }
 #if ENABLE_ADDRESSABLES
             var addressNamingAppliers = new List<AddressNamingRule.Applier>();
-            if (CollectAppliers(assetPath, addressNamingAppliers))
+            if (TryCollectAppliersFromAncestors(assetPath, addressNamingAppliers))
             {
                 foreach (var applier in addressNamingAppliers)
                 {
@@ -145,9 +157,7 @@ namespace FolderAssetImporter
                     var files = Directory.EnumerateFileSystemEntries(assetPath, "*", SearchOption.AllDirectories)
                         .Where(x => !x.EndsWith(".meta") && !x.EndsWith("~") && !Path.GetFileName(x).StartsWith("."))
                         .Select(x => x.Replace("\\", "/"))
-                        .OrderBy(f => f.Split("/").Length)
-                        .ThenBy(f => f);
-                    string dir = null;
+                        .OrderBy(f => f);
                     var skipAssetPresetting = false;
                     var skipAddressNaming = false;
                     var reimportAssets = new HashSet<string>();
@@ -157,22 +167,18 @@ namespace FolderAssetImporter
                     {
                         if (Directory.Exists(file))
                         {
-                            if (file != dir && (dir == null || !file.StartsWith(dir)))
+                            var setting = FromPath(file);
+                            if (setting != null)
                             {
-                                dir = file;
-                                var setting = FromPath(file);
-                                if (setting != null)
-                                {
-                                    skipAssetPresetting = setting._enableAssetPresetting;
-                                    skipAddressNaming = setting._enableAddressNaming;
-                                }
+                                skipAssetPresetting |= setting._enableAssetPresetting;
+                                skipAddressNaming |= setting._enableAddressNaming;
                             }
 
                             continue;
                         }
 
                         presettingAppliers.Clear();
-                        if (!skipAssetPresetting && CollectAppliers(file, presettingAppliers))
+                        if (!skipAssetPresetting && _setting.CollectAppliers(file, presettingAppliers))
                         {
                             foreach (var applier in presettingAppliers)
                             {
@@ -189,7 +195,7 @@ namespace FolderAssetImporter
                         }
 #if ENABLE_ADDRESSABLES
                         addressNamingAppliers.Clear();
-                        if (!skipAddressNaming && CollectAppliers(file, addressNamingAppliers))
+                        if (!skipAddressNaming && _setting.CollectAppliers(file, addressNamingAppliers))
                         {
                             foreach (var applier in addressNamingAppliers)
                             {
