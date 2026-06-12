@@ -8,12 +8,12 @@ using UnityEngine;
 namespace FolderAssetImporter
 {
     [Serializable]
-    public class AssetPresettingRule
+    internal class AssetPresettingRule
     {
         [SerializeField] private string[] _includePatterns;
         [SerializeField] private Preset[] _presets;
 
-        public bool TryGetApplier(string assetPath, out Applier applier)
+        internal bool TryGetApplier(string assetPath, out Applier applier)
         {
             applier = null;
             if (_presets == null || _includePatterns == null || _presets.All(x => x == null)) return false;
@@ -27,18 +27,18 @@ namespace FolderAssetImporter
             return false;
         }
 
-        public class Applier
+        internal class Applier
         {
             private readonly string _assetPath;
             private readonly Preset[] _presets;
             
-            public Applier(string assetPath, Preset[] presets)
+            internal Applier(string assetPath, Preset[] presets)
             {
                 _assetPath = assetPath;
                 _presets = presets;
             }
             
-            public void Log()
+            internal void Log()
             {
                 foreach (var preset in _presets)
                 {
@@ -47,7 +47,7 @@ namespace FolderAssetImporter
                 }
             }
 
-            public void Apply()
+            internal void Apply()
             {
                 var importer = AssetImporter.GetAtPath(_assetPath);
                 foreach (var preset in _presets)

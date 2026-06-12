@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace FolderAssetImporter
 {
-    public class FolderAssetProcessor : AssetPostprocessor
+    internal class FolderAssetProcessor : AssetPostprocessor
     {
         public override int GetPostprocessOrder()
         {

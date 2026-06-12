@@ -4,7 +4,7 @@ using UnityEngine;
 namespace FolderAssetImporter
 {
     [CustomEditor(typeof(DefaultAsset))]
-    public class DefaultAssetEditor : Editor
+    internal class DefaultAssetEditor : Editor
     {
         private static FolderAssetImportSetting.Wrapper _wrapper;
         private static SerializedObject _serializedObject;

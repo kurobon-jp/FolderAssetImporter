@@ -11,14 +11,14 @@ using UnityEngine;
 namespace FolderAssetImporter
 {
     [Serializable]
-    public class AddressNamingRule
+    internal class AddressNamingRule
     {
         [SerializeField] private string[] _includePatterns;
         [SerializeField] private string _group;
         [SerializeField] private string _address;
         [SerializeField] private string[] _labels;
 
-        public bool TryGetApplier(string assetPath, out Applier applier)
+        internal bool TryGetApplier(string assetPath, out Applier applier)
         {
             applier = null;
             if (string.IsNullOrEmpty(_group) && string.IsNullOrEmpty(_address)) return false;
@@ -61,14 +61,14 @@ namespace FolderAssetImporter
             return false;
         }
 
-        public class Applier
+        internal class Applier
         {
             private readonly string _assetPath;
             private readonly string _group;
             private readonly string _address;
             private readonly string[] _labels;
 
-            public Applier(string assetPath, string group, string address, string[] labels)
+            internal Applier(string assetPath, string group, string address, string[] labels)
             {
                 _assetPath = assetPath;
                 _group = group;
@@ -76,12 +76,12 @@ namespace FolderAssetImporter
                 _labels = labels;
             }
 
-            public void Log()
+            internal void Log()
             {
                 Debug.Log($"Applying address naming to {_assetPath}\nGroup: {_group} Address: {_address}");
             }
 
-            public void Apply()
+            internal void Apply()
             {
 #if ENABLE_ADDRESSABLES
                 var settings = AddressableAssetSettingsDefaultObject.Settings;

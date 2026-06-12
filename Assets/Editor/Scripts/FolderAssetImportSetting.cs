@@ -8,7 +8,7 @@ using UnityEngine;
 namespace FolderAssetImporter
 {
     [Serializable]
-    public class FolderAssetImportSetting
+    internal class FolderAssetImportSetting
     {
         private const string RootPath = "Assets";
 
@@ -87,7 +87,7 @@ namespace FolderAssetImporter
             return false;
         }
 
-        public static void Import(string assetPath)
+        internal static void Import(string assetPath)
         {
             var presettingAppliers = new List<AssetPresettingRule.Applier>();
             if (CollectAppliers(assetPath, presettingAppliers))
@@ -111,7 +111,7 @@ namespace FolderAssetImporter
 #endif
         }
 
-        public class Wrapper : ScriptableObject
+        internal class Wrapper : ScriptableObject
         {
             [SerializeField] private FolderAssetImportSetting _setting = new();
 
@@ -119,13 +119,13 @@ namespace FolderAssetImporter
             private string _pasteData;
             private bool _isChanged;
 
-            public void Setup(AssetImporter importer)
+            internal void Setup(AssetImporter importer)
             {
                 _setting = FromJson(importer.userData);
                 _importer = importer;
             }
 
-            public void Save(bool force = false)
+            internal void Save(bool force = false)
             {
                 if (_isChanged || force)
                 {
@@ -134,7 +134,7 @@ namespace FolderAssetImporter
                 }
             }
 
-            public void ReImport(bool isDryRun = false)
+            internal void ReImport(bool isDryRun = false)
             {
                 Save();
                 EditorUtility.SetDirty(this);
@@ -218,27 +218,27 @@ namespace FolderAssetImporter
                 }
             }
 
-            public void SetChanged()
+            internal void SetChanged()
             {
                 _isChanged = true;
             }
 
-            public void Clear()
+            internal void Clear()
             {
                 SetUserData();
             }
 
-            public void Copy()
+            internal void Copy()
             {
                 _pasteData = _importer.userData;
             }
 
-            public void Paste()
+            internal void Paste()
             {
                 SetUserData(_pasteData);
             }
 
-            public bool CanPaste()
+            internal bool CanPaste()
             {
                 return !string.IsNullOrEmpty(_pasteData);
             }
