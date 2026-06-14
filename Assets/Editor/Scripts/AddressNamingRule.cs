@@ -122,14 +122,14 @@ namespace FolderAssetImporter
                 var guid = AssetDatabase.AssetPathToGUID(_assetPath);
                 var entry = settings.CreateOrMoveEntry(guid, group);
                 entry.SetAddress(_address);
-                foreach (var label in entry.labels)
+                foreach (var label in entry.labels.ToArray())
                 {
-                    entry.SetLabel(label, false);
+                    entry.SetLabel(label, false, postEvent: false);
                 }
 
                 foreach (var label in _labels)
                 {
-                    entry.SetLabel(label, true, true);
+                    entry.SetLabel(label, true, true, postEvent: false);
                 }
 #endif
             }
