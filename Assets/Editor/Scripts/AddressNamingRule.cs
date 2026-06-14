@@ -7,6 +7,7 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 #endif
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace FolderAssetImporter
 {
@@ -18,10 +19,10 @@ namespace FolderAssetImporter
         [SerializeField] private string _address;
         [SerializeField] private string[] _labels;
 
-        internal bool TryGetApplier(string assetPath, out Applier applier)
+        internal bool TryGetApplier(string assetPath, Object holder, out Applier applier)
         {
             applier = null;
-            if (string.IsNullOrEmpty(_group) && string.IsNullOrEmpty(_address)) return false;
+            if (string.IsNullOrEmpty(_group) || string.IsNullOrEmpty(_address)) return false;
             if (!IsMatch(assetPath, out var collection)) return false;
 
             var address = _address;
@@ -36,12 +37,25 @@ namespace FolderAssetImporter
 
                 address = string.Format(address, args);
                 labels = _labels
-                    .Where(label => !string.IsNullOrEmpty(label))
                     .Select(label => string.Format(label, args))
+                    .Where(label => !string.IsNullOrEmpty(label))
+                    .Distinct()
                     .ToArray();
             }
 
-            applier = new Applier(assetPath, _group, address, labels);
+            if (string.IsNullOrEmpty(address))
+            {
+                Debug.LogError($"Invalid address {address}", holder);
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(_group))
+            {
+                Debug.LogError($"Invalid group {_group}", holder);
+                return false;
+            }
+
+            applier = new Applier(assetPath, _group, address, labels, holder);
             return true;
         }
 
@@ -49,7 +63,7 @@ namespace FolderAssetImporter
         {
             collection = null;
             if (string.IsNullOrEmpty(assetPath)) return false;
-            if (_includePatterns == null || _includePatterns.Length == 0) return true;
+            if (_includePatterns == null || _includePatterns.Length == 0) return false;
             foreach (var pattern in _includePatterns)
             {
                 var match = Regex.Match(assetPath, pattern);
@@ -67,18 +81,24 @@ namespace FolderAssetImporter
             private readonly string _group;
             private readonly string _address;
             private readonly string[] _labels;
+            private readonly Object _context;
 
-            internal Applier(string assetPath, string group, string address, string[] labels)
+            internal Applier(string assetPath, string group, string address, string[] labels, Object context)
             {
                 _assetPath = assetPath;
                 _group = group;
                 _address = address;
                 _labels = labels;
+                _context = context;
             }
 
             internal void Log()
             {
-                Debug.Log($"Applying address naming to {_assetPath}\nGroup: {_group} Address: {_address}");
+                Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, _context,
+                    $"Applying address naming to {_assetPath}\n" +
+                    $"Group: {_group.Replace("{", "{{").Replace("}", "}}")} " +
+                    $"Address: {_address.Replace("{", "{{").Replace("}", "}}")} " +
+                    $"Labels: [{string.Join(",", _labels)}]");
             }
 
             internal void Apply()

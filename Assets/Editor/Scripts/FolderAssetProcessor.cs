@@ -19,14 +19,14 @@ namespace FolderAssetImporter
             foreach (var assetPath in importedAssets)
             {
                 if (Directory.Exists(assetPath)) continue;
-                FolderAssetImportSetting.Import(assetPath);
+                FolderAssetImportSettings.Instance.Import(assetPath);
                 reimportAssets.Add(assetPath);
             }
 
             foreach (var assetPath in movedAssets)
             {
                 if (Directory.Exists(assetPath)) continue;
-                FolderAssetImportSetting.Import(assetPath);
+                FolderAssetImportSettings.Instance.Import(assetPath);
                 reimportAssets.Add(assetPath);
             }
 

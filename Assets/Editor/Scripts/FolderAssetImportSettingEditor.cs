@@ -4,9 +4,8 @@ using UnityEngine;
 namespace FolderAssetImporter
 {
     [CustomEditor(typeof(DefaultAsset))]
-    internal class DefaultAssetEditor : Editor
+    internal class FolderAssetImportSettingEditor : Editor
     {
-        private static FolderAssetImportSetting.Wrapper _wrapper;
         private static SerializedObject _serializedObject;
         private static GUIStyle _style;
 
@@ -37,21 +36,13 @@ namespace FolderAssetImporter
 
         private void OnEnable()
         {
-            var assetPath = AssetDatabase.GetAssetPath(target);
-            var importer = AssetImporter.GetAtPath(assetPath);
-            if (importer == null) return;
-            if (_wrapper == null)
-            {
-                _wrapper = CreateInstance<FolderAssetImportSetting.Wrapper>();
-                _serializedObject = new SerializedObject(_wrapper);
-            }
-
-            _wrapper.Setup(importer);
+            _serializedObject = new SerializedObject(FolderAssetImportSettings.Instance);
+            FolderAssetImportSettings.Instance.Select(target);
         }
 
         private void OnDisable()
         {
-            _wrapper.Save();
+            FolderAssetImportSettings.Instance.Save();
         }
 
         public override void OnInspectorGUI()
@@ -59,14 +50,13 @@ namespace FolderAssetImporter
             base.OnInspectorGUI();
             _serializedObject.Update();
 
-            EditorGUI.BeginChangeCheck();
             GUI.enabled = true;
             GUILayout.BeginVertical("Asset Presetting", Style);
-            var enableAssetPresetting = _serializedObject.FindProperty("_setting._enableAssetPresetting");
+            var enableAssetPresetting = _serializedObject.FindProperty("_selected._enableAssetPresetting");
             GUI.enabled = enableAssetPresetting.boolValue =
                 EditorGUILayout.ToggleLeft("Enable", enableAssetPresetting.boolValue);
             EditorGUI.indentLevel++;
-            EditorGUILayout.PropertyField(_serializedObject.FindProperty("_setting._assetPresettingRules"),
+            EditorGUILayout.PropertyField(_serializedObject.FindProperty("_selected._assetPresettingRules"),
                 new GUIContent("Rules"));
             EditorGUI.indentLevel--;
             GUILayout.EndVertical();
@@ -74,56 +64,54 @@ namespace FolderAssetImporter
 #if ENABLE_ADDRESSABLES
             GUI.enabled = true;
             GUILayout.BeginVertical("Address Naming", Style);
-            var enableAddressNaming = _serializedObject.FindProperty("_setting._enableAddressNaming");
+            var enableAddressNaming = _serializedObject.FindProperty("_selected._enableAddressNaming");
             GUI.enabled = enableAddressNaming.boolValue =
                 EditorGUILayout.ToggleLeft("Enable", enableAddressNaming.boolValue);
             EditorGUI.indentLevel++;
-            EditorGUILayout.PropertyField(_serializedObject.FindProperty("_setting._addressNamingRules"),
+            EditorGUILayout.PropertyField(_serializedObject.FindProperty("_selected._addressNamingRules"),
                 new GUIContent("Rules"));
             EditorGUI.indentLevel--;
             GUILayout.EndVertical();
             GUI.enabled = enableAddressNaming.boolValue;
 #endif
-            if (EditorGUI.EndChangeCheck())
-            {
-                _wrapper.SetChanged();
-            }
 
             _serializedObject.ApplyModifiedProperties();
             GUI.enabled = GUI.enabled || enableAssetPresetting.boolValue;
             if (GUILayout.Button("Dry Run"))
             {
-                _wrapper.ReImport(true);
+                var assetPath = AssetDatabase.GetAssetPath(target);
+                FolderAssetImportSettings.Instance.ReImport(assetPath, true);
             }
 
             if (GUILayout.Button("Reimport"))
             {
-                _wrapper.ReImport();
+                var assetPath = AssetDatabase.GetAssetPath(target);
+                FolderAssetImportSettings.Instance.ReImport(assetPath);
             }
         }
-        
+
         [MenuItem("CONTEXT/DefaultAsset/Clear")]
         private static void Clear()
         {
-            _wrapper.Clear();
+            FolderAssetImportSettings.Instance.Clear();
         }
 
         [MenuItem("CONTEXT/DefaultAsset/Copy")]
         private static void Copy()
         {
-            _wrapper.Copy();
+            FolderAssetImportSettings.Instance.Copy();
         }
 
         [MenuItem("CONTEXT/DefaultAsset/Paste")]
         private static void Paste()
         {
-            _wrapper.Paste();
+            FolderAssetImportSettings.Instance.Paste();
         }
-        
+
         [MenuItem("CONTEXT/DefaultAsset/Paste", true)]
         private static bool CanPaste()
         {
-            return _wrapper.CanPaste();
+            return FolderAssetImportSettings.Instance.CanPaste();
         }
     }
 }
