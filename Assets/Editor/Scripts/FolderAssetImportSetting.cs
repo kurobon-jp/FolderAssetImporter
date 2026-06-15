@@ -28,6 +28,14 @@ namespace FolderAssetImporter
             return Holder != null && (_enableAssetPresetting || _enableAddressNaming);
         }
 
+        internal void Clear()
+        {
+            _enableAssetPresetting = false;
+            _enableAddressNaming = false;
+            _assetPresettingRules.Clear();
+            _addressNamingRules.Clear();
+        }
+
         internal bool CollectAppliers(string assetPath, List<AssetPresettingRule.Applier> appliers)
         {
             if (!_enableAssetPresetting) return false;

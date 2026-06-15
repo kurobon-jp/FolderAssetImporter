@@ -49,12 +49,6 @@ namespace FolderAssetImporter
                 return false;
             }
 
-            if (string.IsNullOrEmpty(_group))
-            {
-                Debug.LogError($"Invalid group {_group}", holder);
-                return false;
-            }
-
             applier = new Applier(assetPath, _group, address, labels, holder);
             return true;
         }

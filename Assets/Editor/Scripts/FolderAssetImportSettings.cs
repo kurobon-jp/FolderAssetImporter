@@ -37,9 +37,8 @@ namespace FolderAssetImporter
 
         [SerializeField] private List<FolderAssetImportSetting> _settings = new();
         [SerializeField] private FolderAssetImportSetting _selected = new();
-        private string _clipboard;
-
         private readonly Dictionary<string, FolderAssetImportSetting> _pathCache = new();
+        private string _clipboard;
 
         private bool TryGet(string holderPath, out FolderAssetImportSetting setting)
         {
@@ -53,6 +52,40 @@ namespace FolderAssetImporter
                 if (setting?.Holder != holder) continue;
                 _pathCache[holderPath] = setting;
                 return true;
+            }
+
+            return false;
+        }
+
+        private bool TryGetAppliers(string assetPath,
+            List<AssetPresettingRule.Applier> appliers)
+        {
+            var parentPath = Path.GetDirectoryName(assetPath);
+            while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
+            {
+                if (TryGet(parentPath, out var setting) && setting.CollectAppliers(assetPath, appliers))
+                {
+                    return true;
+                }
+
+                parentPath = Path.GetDirectoryName(parentPath);
+            }
+
+            return false;
+        }
+
+        private bool TryGetAppliers(string assetPath,
+            List<AddressNamingRule.Applier> appliers)
+        {
+            var parentPath = Path.GetDirectoryName(assetPath);
+            while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
+            {
+                if (TryGet(parentPath, out var setting) && setting.CollectAppliers(assetPath, appliers))
+                {
+                    return true;
+                }
+
+                parentPath = Path.GetDirectoryName(parentPath);
             }
 
             return false;
@@ -177,43 +210,9 @@ namespace FolderAssetImporter
 #endif
         }
 
-        private bool TryGetAppliers(string assetPath,
-            List<AssetPresettingRule.Applier> appliers)
-        {
-            var parentPath = Path.GetDirectoryName(assetPath);
-            while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
-            {
-                if (TryGet(parentPath, out var setting) && setting.CollectAppliers(assetPath, appliers))
-                {
-                    return true;
-                }
-
-                parentPath = Path.GetDirectoryName(parentPath);
-            }
-
-            return false;
-        }
-
-        private bool TryGetAppliers(string assetPath,
-            List<AddressNamingRule.Applier> appliers)
-        {
-            var parentPath = Path.GetDirectoryName(assetPath);
-            while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
-            {
-                if (TryGet(parentPath, out var setting) && setting.CollectAppliers(assetPath, appliers))
-                {
-                    return true;
-                }
-
-                parentPath = Path.GetDirectoryName(parentPath);
-            }
-
-            return false;
-        }
-
         internal void Clear()
         {
-            _selected = null;
+            _selected.Clear();
         }
 
         internal void Copy()
