@@ -69,7 +69,7 @@ namespace FolderAssetImporter
         {
             base.OnInspectorGUI();
 
-            if (_index < 0) return;
+            if (_index < 0 || _serializedObject == null) return;
             _serializedObject.Update();
 
             var suffix = $"_settings.Array.data[{_index}]";

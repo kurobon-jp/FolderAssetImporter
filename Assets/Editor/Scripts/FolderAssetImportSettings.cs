@@ -106,10 +106,18 @@ namespace FolderAssetImporter
         {
             var holderPath = AssetDatabase.GetAssetPath(target);
             if (TryGet(holderPath, out _selected)) return _settings.IndexOf(_selected);
-            _selected = new FolderAssetImportSetting { Holder = target };
-            _settings.Add(_selected);
-            _pathCache.Add(holderPath, _selected);
-            return _settings.IndexOf(_selected);
+            _selected = _settings.FirstOrDefault(x => x.Holder == target);
+            if (_selected == null)
+            {
+                _selected = new FolderAssetImportSetting { Holder = target };
+            }
+            else
+            {
+                _settings.Add(_selected);
+            }
+
+            _pathCache[holderPath] = _selected;
+            return _settings.Count - 1;
         }
 
         internal void RemoveCache(string holderPath)
