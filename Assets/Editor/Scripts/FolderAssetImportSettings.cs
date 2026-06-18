@@ -110,14 +110,11 @@ namespace FolderAssetImporter
             if (_selected == null)
             {
                 _selected = new FolderAssetImportSetting { Holder = target };
-            }
-            else
-            {
                 _settings.Add(_selected);
             }
 
             _pathCache[holderPath] = _selected;
-            return _settings.Count - 1;
+            return _settings.IndexOf(_selected);
         }
 
         internal void RemoveCache(string holderPath)
