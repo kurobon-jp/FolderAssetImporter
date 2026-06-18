@@ -36,8 +36,9 @@ namespace FolderAssetImporter
         }
 
         [SerializeField] private List<FolderAssetImportSetting> _settings = new();
-        [SerializeField] private FolderAssetImportSetting _selected = new();
+
         private readonly Dictionary<string, FolderAssetImportSetting> _pathCache = new();
+        private FolderAssetImportSetting _selected;
         private string _clipboard;
 
         private bool TryGet(string holderPath, out FolderAssetImportSetting setting)
@@ -57,8 +58,7 @@ namespace FolderAssetImporter
             return false;
         }
 
-        private bool TryGetAppliers(string assetPath,
-            List<AssetPresettingRule.Applier> appliers)
+        private bool TryGetAppliers(string assetPath, List<AssetPresettingRule.Applier> appliers)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
@@ -74,8 +74,7 @@ namespace FolderAssetImporter
             return false;
         }
 
-        private bool TryGetAppliers(string assetPath,
-            List<AddressNamingRule.Applier> appliers)
+        private bool TryGetAppliers(string assetPath, List<AddressNamingRule.Applier> appliers)
         {
             var parentPath = Path.GetDirectoryName(assetPath);
             while (!string.IsNullOrEmpty(parentPath) && RootPath != parentPath)
@@ -91,25 +90,38 @@ namespace FolderAssetImporter
             return false;
         }
 
-        internal void Select(Object target)
+        private void Cleanup()
+        {
+            _settings.RemoveAll(x =>
+            {
+                var isValid = x.IsValid();
+                if (isValid || x.Holder == null) return !isValid;
+                var assetPath = AssetDatabase.GetAssetPath(x.Holder);
+                RemoveCache(assetPath);
+                return true;
+            });
+        }
+
+        internal int GetIndex(Object target)
         {
             var holderPath = AssetDatabase.GetAssetPath(target);
-            if (!TryGet(holderPath, out _selected))
-            {
-                _selected = new FolderAssetImportSetting { Holder = target };
-            }
+            if (TryGet(holderPath, out _selected)) return _settings.IndexOf(_selected);
+            _selected = new FolderAssetImportSetting { Holder = target };
+            _settings.Add(_selected);
+            _pathCache.Add(holderPath, _selected);
+            return _settings.IndexOf(_selected);
+        }
+
+        internal void RemoveCache(string holderPath)
+        {
+            _pathCache.Remove(holderPath);
         }
 
         internal void Save()
         {
-            var assetPath = AssetDatabase.GetAssetPath(_selected.Holder);
-            _pathCache.Remove(assetPath);
-            _settings.RemoveAll(x => !x.IsValid() || _selected.Holder == x.Holder);
-
-            if (!_selected.IsValid()) return;
-            _settings.Add(_selected);
-            _pathCache[assetPath] = _selected;
+            Cleanup();
             EditorUtility.SetDirty(this);
+            AssetDatabase.SaveAssetIfDirty(this);
         }
 
         internal void ReImport(string holderPath, bool isDryRun = false)

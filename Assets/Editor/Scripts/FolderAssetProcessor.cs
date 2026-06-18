@@ -15,6 +15,12 @@ namespace FolderAssetImporter
         private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets,
             string[] movedAssets, string[] movedFromAssetPaths)
         {
+            for (var i = 0; i < movedAssets.Length; i++)
+            {
+                if (!Directory.Exists(movedAssets[i])) continue;
+                FolderAssetImportSettings.Instance.RemoveCache(movedFromAssetPaths[i]);
+            }
+
             var reimportAssets = new HashSet<string>();
             foreach (var assetPath in importedAssets)
             {
