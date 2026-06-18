@@ -104,9 +104,24 @@ namespace FolderAssetImporter
 
         internal int GetIndex(Object target)
         {
+            if (target == null)
+                return -1;
+
             var holderPath = AssetDatabase.GetAssetPath(target);
-            if (TryGet(holderPath, out _selected)) return _settings.IndexOf(_selected);
-            _selected = _settings.FirstOrDefault(x => x.Holder == target);
+            if (string.IsNullOrEmpty(holderPath))
+            {
+                return -1;
+            }
+
+            if (TryGet(holderPath, out _selected))
+            {
+                return _settings.IndexOf(_selected);
+            }
+
+            _selected = _settings.FirstOrDefault(x =>
+                x != null && 
+                (x.Holder == target || AssetDatabase.GetAssetPath(x.Holder) == holderPath));
+
             if (_selected == null)
             {
                 _selected = new FolderAssetImportSetting { Holder = target };
