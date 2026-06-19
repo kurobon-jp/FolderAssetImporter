@@ -25,7 +25,8 @@ namespace FolderAssetImporter
 
         internal bool IsValid()
         {
-            return Holder != null && (_enableAssetPresetting || _enableAddressNaming);
+            return _holder != null && (_enableAssetPresetting || _enableAddressNaming ||
+                                       _assetPresettingRules.Count > 0 || _addressNamingRules.Count > 0);
         }
 
         internal void Clear()
