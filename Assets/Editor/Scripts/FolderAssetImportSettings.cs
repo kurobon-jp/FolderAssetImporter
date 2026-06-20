@@ -155,53 +155,55 @@ namespace FolderAssetImporter
             var reimportAssets = new HashSet<string>();
             var presettingAppliers = new List<AssetPresettingRule.Applier>();
             var addressNamingAppliers = new List<AddressNamingRule.Applier>();
+
+            foreach (var file in files)
+            {
+                if (Directory.Exists(file))
+                {
+                    if (TryGet(file, out var setting))
+                    {
+                        skipAssetPresetting |= setting.EnableAssetPresetting;
+                        skipAddressNaming |= setting.EnableAddressNaming;
+                    }
+
+                    continue;
+                }
+
+                presettingAppliers.Clear();
+                if (!skipAssetPresetting && _selected.CollectAppliers(file, presettingAppliers))
+                {
+                    foreach (var applier in presettingAppliers)
+                    {
+                        if (isDryRun)
+                        {
+                            applier.Log();
+                        }
+                        else if (applier.Apply())
+                        {
+                            applier.Log();
+                            reimportAssets.Add(file);
+                        }
+                    }
+                }
+#if ENABLE_ADDRESSABLES
+                addressNamingAppliers.Clear();
+                if (!skipAddressNaming && _selected.CollectAppliers(file, addressNamingAppliers))
+                {
+                    foreach (var applier in addressNamingAppliers)
+                    {
+                        if (isDryRun || applier.Apply())
+                        {
+                            applier.Log();
+                        }
+                    }
+                }
+#endif
+            }
+
+            if (reimportAssets.Count == 0) return;
             AssetDatabase.StartAssetEditing();
             try
             {
-                foreach (var file in files)
-                {
-                    if (Directory.Exists(file))
-                    {
-                        if (TryGet(file, out var setting))
-                        {
-                            skipAssetPresetting |= setting.EnableAssetPresetting;
-                            skipAddressNaming |= setting.EnableAddressNaming;
-                        }
-
-                        continue;
-                    }
-
-                    presettingAppliers.Clear();
-                    if (!skipAssetPresetting && _selected.CollectAppliers(file, presettingAppliers))
-                    {
-                        foreach (var applier in presettingAppliers)
-                        {
-                            if (isDryRun)
-                            {
-                                applier.Log();
-                            }
-                            else if (applier.Apply())
-                            {
-                                applier.Log();
-                                reimportAssets.Add(file);
-                            }
-                        }
-                    }
-#if ENABLE_ADDRESSABLES
-                    addressNamingAppliers.Clear();
-                    if (!skipAddressNaming && _selected.CollectAppliers(file, addressNamingAppliers))
-                    {
-                        foreach (var applier in addressNamingAppliers)
-                        {
-                            if (isDryRun || applier.Apply())
-                            {
-                                applier.Log();
-                            }
-                        }
-                    }
-#endif
-                }
-
                 foreach (var reimportAsset in reimportAssets)
                 {
                     AssetDatabase.ImportAsset(reimportAsset, ImportAssetOptions.Default);
