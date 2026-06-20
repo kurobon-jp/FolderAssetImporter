@@ -95,7 +95,7 @@ namespace FolderAssetImporter
                     $"Labels: [{string.Join(",", _labels)}]");
             }
 
-            internal void Apply()
+            internal bool Apply()
             {
 #if ENABLE_ADDRESSABLES
                 var settings = AddressableAssetSettingsDefaultObject.Settings;
@@ -105,6 +105,9 @@ namespace FolderAssetImporter
                 }
 
                 var group = settings.FindGroup(_group);
+                var guid = AssetDatabase.AssetPathToGUID(_assetPath);
+                var entry = settings.FindAssetEntry(guid);
+                if (group != null && entry != null && group.Name == _group && entry.address == _address && entry.labels.SequenceEqual(_labels)) return false;
                 if (group == null)
                 {
                     var groupTemplate = settings.GetGroupTemplateObject(0) as AddressableAssetGroupTemplate;
@@ -112,9 +115,8 @@ namespace FolderAssetImporter
                         groupTemplate.GetTypes());
                     groupTemplate.ApplyToAddressableAssetGroup(group);
                 }
-
-                var guid = AssetDatabase.AssetPathToGUID(_assetPath);
-                var entry = settings.CreateOrMoveEntry(guid, group);
+                
+                entry = settings.CreateOrMoveEntry(guid, group);
                 entry.SetAddress(_address);
                 foreach (var label in entry.labels.ToArray())
                 {
@@ -126,6 +128,7 @@ namespace FolderAssetImporter
                     entry.SetLabel(label, true, true, postEvent: false);
                 }
 #endif
+                return true;
             }
         }
     }

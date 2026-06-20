@@ -18,7 +18,7 @@ namespace FolderAssetImporter
             {
                 if (_instance == null)
                 {
-                    var guids = AssetDatabase.FindAssets($"t:FolderAssetImportSettings");
+                    var guids = AssetDatabase.FindAssets("t:FolderAssetImportSettings");
                     if (guids.Length > 0)
                     {
                         _instance = AssetDatabase.LoadAssetByGUID<FolderAssetImportSettings>(new GUID(guids[0]));
@@ -28,7 +28,7 @@ namespace FolderAssetImporter
                 if (_instance == null)
                 {
                     _instance = CreateInstance<FolderAssetImportSettings>();
-                    AssetDatabase.CreateAsset(_instance, $"Assets/FolderAssetImportSettings.asset");
+                    AssetDatabase.CreateAsset(_instance, "Assets/FolderAssetImportSettings.asset");
                 }
 
                 return _instance;
@@ -119,7 +119,7 @@ namespace FolderAssetImporter
             }
 
             _selected = _settings.FirstOrDefault(x =>
-                x != null && 
+                x != null &&
                 (x.Holder == target || AssetDatabase.GetAssetPath(x.Holder) == holderPath));
 
             if (_selected == null)
@@ -180,9 +180,9 @@ namespace FolderAssetImporter
                             {
                                 applier.Log();
                             }
-                            else
+                            else if (applier.Apply())
                             {
-                                applier.Apply();
+                                applier.Log();
                                 reimportAssets.Add(file);
                             }
                         }
@@ -193,14 +193,9 @@ namespace FolderAssetImporter
                     {
                         foreach (var applier in addressNamingAppliers)
                         {
-                            if (isDryRun)
+                            if (isDryRun || applier.Apply())
                             {
                                 applier.Log();
-                            }
-                            else
-                            {
-                                applier.Apply();
-                                reimportAssets.Add(file);
                             }
                         }
                     }
@@ -218,15 +213,19 @@ namespace FolderAssetImporter
             }
         }
 
-        internal void Import(string assetPath)
+        internal bool Import(string assetPath)
         {
             var presettingAppliers = new List<AssetPresettingRule.Applier>();
+            var isDirty = false;
             if (TryGetAppliers(assetPath, presettingAppliers))
             {
                 foreach (var applier in presettingAppliers)
                 {
-                    applier.Apply();
-                    applier.Log();
+                    if (applier.Apply())
+                    {
+                        applier.Log();
+                        isDirty = true;
+                    }
                 }
             }
 #if ENABLE_ADDRESSABLES
@@ -235,11 +234,15 @@ namespace FolderAssetImporter
             {
                 foreach (var applier in addressNamingAppliers)
                 {
-                    applier.Apply();
-                    applier.Log();
+                    if (applier.Apply())
+                    {
+                        applier.Log();
+                    }
                 }
             }
 #endif
+
+            return isDirty;
         }
 
         internal void Clear()
