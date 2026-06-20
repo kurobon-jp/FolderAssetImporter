@@ -18,7 +18,7 @@ namespace FolderAssetImporter
             {
                 if (_instance == null)
                 {
-                    var guids = AssetDatabase.FindAssets($"t:FolderAssetImportSettings");
+                    var guids = AssetDatabase.FindAssets("t:FolderAssetImportSettings");
                     if (guids.Length > 0)
                     {
                         _instance = AssetDatabase.LoadAssetByGUID<FolderAssetImportSettings>(new GUID(guids[0]));
@@ -28,7 +28,7 @@ namespace FolderAssetImporter
                 if (_instance == null)
                 {
                     _instance = CreateInstance<FolderAssetImportSettings>();
-                    AssetDatabase.CreateAsset(_instance, $"Assets/FolderAssetImportSettings.asset");
+                    AssetDatabase.CreateAsset(_instance, "Assets/FolderAssetImportSettings.asset");
                 }
 
                 return _instance;
@@ -119,7 +119,7 @@ namespace FolderAssetImporter
             }
 
             _selected = _settings.FirstOrDefault(x =>
-                x != null && 
+                x != null &&
                 (x.Holder == target || AssetDatabase.GetAssetPath(x.Holder) == holderPath));
 
             if (_selected == null)
@@ -155,58 +155,55 @@ namespace FolderAssetImporter
             var reimportAssets = new HashSet<string>();
             var presettingAppliers = new List<AssetPresettingRule.Applier>();
             var addressNamingAppliers = new List<AddressNamingRule.Applier>();
+
+            foreach (var file in files)
+            {
+                if (Directory.Exists(file))
+                {
+                    if (TryGet(file, out var setting))
+                    {
+                        skipAssetPresetting |= setting.EnableAssetPresetting;
+                        skipAddressNaming |= setting.EnableAddressNaming;
+                    }
+
+                    continue;
+                }
+
+                presettingAppliers.Clear();
+                if (!skipAssetPresetting && _selected.CollectAppliers(file, presettingAppliers))
+                {
+                    foreach (var applier in presettingAppliers)
+                    {
+                        if (isDryRun)
+                        {
+                            applier.Log();
+                        }
+                        else if (applier.Apply())
+                        {
+                            applier.Log();
+                            reimportAssets.Add(file);
+                        }
+                    }
+                }
+#if ENABLE_ADDRESSABLES
+                addressNamingAppliers.Clear();
+                if (!skipAddressNaming && _selected.CollectAppliers(file, addressNamingAppliers))
+                {
+                    foreach (var applier in addressNamingAppliers)
+                    {
+                        if (isDryRun || applier.Apply())
+                        {
+                            applier.Log();
+                        }
+                    }
+                }
+#endif
+            }
+
+            if (reimportAssets.Count == 0) return;
             AssetDatabase.StartAssetEditing();
             try
             {
-                foreach (var file in files)
-                {
-                    if (Directory.Exists(file))
-                    {
-                        if (TryGet(file, out var setting))
-                        {
-                            skipAssetPresetting |= setting.EnableAssetPresetting;
-                            skipAddressNaming |= setting.EnableAddressNaming;
-                        }
-
-                        continue;
-                    }
-
-                    presettingAppliers.Clear();
-                    if (!skipAssetPresetting && _selected.CollectAppliers(file, presettingAppliers))
-                    {
-                        foreach (var applier in presettingAppliers)
-                        {
-                            if (isDryRun)
-                            {
-                                applier.Log();
-                            }
-                            else
-                            {
-                                applier.Apply();
-                                reimportAssets.Add(file);
-                            }
-                        }
-                    }
-#if ENABLE_ADDRESSABLES
-                    addressNamingAppliers.Clear();
-                    if (!skipAddressNaming && _selected.CollectAppliers(file, addressNamingAppliers))
-                    {
-                        foreach (var applier in addressNamingAppliers)
-                        {
-                            if (isDryRun)
-                            {
-                                applier.Log();
-                            }
-                            else
-                            {
-                                applier.Apply();
-                                reimportAssets.Add(file);
-                            }
-                        }
-                    }
-#endif
-                }
-
                 foreach (var reimportAsset in reimportAssets)
                 {
                     AssetDatabase.ImportAsset(reimportAsset, ImportAssetOptions.Default);
@@ -218,15 +215,19 @@ namespace FolderAssetImporter
             }
         }
 
-        internal void Import(string assetPath)
+        internal bool Import(string assetPath)
         {
             var presettingAppliers = new List<AssetPresettingRule.Applier>();
+            var isDirty = false;
             if (TryGetAppliers(assetPath, presettingAppliers))
             {
                 foreach (var applier in presettingAppliers)
                 {
-                    applier.Apply();
-                    applier.Log();
+                    if (applier.Apply())
+                    {
+                        applier.Log();
+                        isDirty = true;
+                    }
                 }
             }
 #if ENABLE_ADDRESSABLES
@@ -235,11 +236,15 @@ namespace FolderAssetImporter
             {
                 foreach (var applier in addressNamingAppliers)
                 {
-                    applier.Apply();
-                    applier.Log();
+                    if (applier.Apply())
+                    {
+                        applier.Log();
+                    }
                 }
             }
 #endif
+
+            return isDirty;
         }
 
         internal void Clear()

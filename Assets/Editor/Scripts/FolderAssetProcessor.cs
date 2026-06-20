@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEditor;
 using System.IO;
-using UnityEngine;
 
 namespace FolderAssetImporter
 {
@@ -25,15 +24,19 @@ namespace FolderAssetImporter
             foreach (var assetPath in importedAssets)
             {
                 if (Directory.Exists(assetPath)) continue;
-                FolderAssetImportSettings.Instance.Import(assetPath);
-                reimportAssets.Add(assetPath);
+                if (FolderAssetImportSettings.Instance.Import(assetPath))
+                {
+                    reimportAssets.Add(assetPath);
+                }
             }
 
             foreach (var assetPath in movedAssets)
             {
                 if (Directory.Exists(assetPath)) continue;
-                FolderAssetImportSettings.Instance.Import(assetPath);
-                reimportAssets.Add(assetPath);
+                if (FolderAssetImportSettings.Instance.Import(assetPath))
+                {
+                    reimportAssets.Add(assetPath);
+                }
             }
 
             if (reimportAssets.Count == 0) return;
@@ -42,11 +45,7 @@ namespace FolderAssetImporter
             {
                 foreach (var assetPath in reimportAssets)
                 {
-                    var asset = AssetDatabase.LoadAssetAtPath(assetPath, typeof(Object));
-                    if (EditorUtility.IsDirty(asset))
-                    {
-                        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.Default);
-                    }
+                    AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.Default);
                 }
             }
             finally

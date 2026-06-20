@@ -33,31 +33,36 @@ namespace FolderAssetImporter
             private readonly string _assetPath;
             private readonly Preset[] _presets;
             private readonly Object _context;
-            
+
             internal Applier(string assetPath, Preset[] presets, Object context)
             {
                 _assetPath = assetPath;
                 _presets = presets;
-                _context =  context;
+                _context = context;
             }
-            
+
             internal void Log()
             {
                 foreach (var preset in _presets)
                 {
                     if (preset == null) continue;
-                    Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, _context, $"Applying preset {preset.name} to {_assetPath}");
+                    Debug.LogFormat(LogType.Log, LogOption.NoStacktrace, _context,
+                        $"Applying preset {preset.name} to {_assetPath}");
                 }
             }
 
-            internal void Apply()
+            internal bool Apply()
             {
                 var importer = AssetImporter.GetAtPath(_assetPath);
+                var before = EditorJsonUtility.ToJson(importer);
                 foreach (var preset in _presets)
                 {
                     if (preset == null) continue;
                     preset.ApplyTo(importer);
                 }
+
+                var after = EditorJsonUtility.ToJson(importer);
+                return before != after;
             }
         }
     }
